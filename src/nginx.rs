@@ -1,4 +1,4 @@
-use crate::config::{Config, Container, Route};
+use crate::config::Config;
 
 pub fn generate_nginx_config(config: &Config) -> String {
     let servers: Vec<String> = config
@@ -28,7 +28,7 @@ pub fn generate_nginx_config(config: &Config) -> String {
 
         location = /fallback_{} {{
             default_type text/plain;
-            return 503 'Service temporarily unavailable - container {} is not running';
+            return503 'Service temporarily unavailable - container {} is not running';
         }}
     }}"#,
                 host_port, route.target, internal_port, host_port, host_port, route.target
@@ -69,6 +69,7 @@ CMD ["nginx", "-g", "daemon off;"]"#,
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{Container, Route};
 
     fn create_test_config() -> Config {
         let mut config = Config::default();
