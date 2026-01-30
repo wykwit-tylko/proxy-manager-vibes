@@ -170,7 +170,8 @@ async fn main() -> Result<()> {
             print_lines(app.logs(follow, tail).await?);
         }
         Commands::Tui => {
-            eprintln!("TUI not implemented yet");
+            let docker = BollardDocker::connect_local()?;
+            proxy_manager::tui::run(store, docker).await?;
         }
     }
 
