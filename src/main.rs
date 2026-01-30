@@ -1,6 +1,9 @@
 mod config;
+mod docker;
 mod nginx;
+mod ops;
 mod paths;
+mod storage;
 
 fn main() {
     let config = config::AppConfig::default();

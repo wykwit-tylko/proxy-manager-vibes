@@ -2,11 +2,11 @@
 
 ## Overview
 - Goal: re-implement `proxy-manager.py` as a Rust CLI with an additional TUI.
-- Status: initial Rust crate scaffolded; core modules not implemented yet.
+- Status: core config/storage/nginx/docker scaffolding in place; CLI/TUI still pending.
 
 ## Completed
 - Cargo project initialized.
-- Core config/paths/nginx modules with unit tests.
+- Core config/paths/nginx/storage/docker/ops modules with unit tests.
 
 ## In Progress
 - Implement Docker integration and command handlers.
