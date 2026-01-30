@@ -1,0 +1,13 @@
+{
+  "active": true,
+  "iteration": 1,
+  "minIterations": 1,
+  "maxIterations": 5,
+  "completionPromise": "COMPLETE",
+  "tasksMode": false,
+  "taskPromise": "READY_FOR_NEXT_TASK",
+  "prompt": "Your MAIN TASK: Given the proxy-manager.py CLI tool create a complete re-implementation in Rust with an additional TUI.\n\nThere might have been some progress done already.\nTry to keep the track of progress and todos in the PROGRESS.md file.\nCheck your branch first, evaluate the repository state, then continue on with the next most important unfinished todo.\n\nWhen acting on the implementation step:\n- Create unit tests for each new feature.\n- Make sure the architecture is logical and clean.\n- Commit each self-contained set of changes that you make.\n- Before commit run 'cargo fmt'.\n- Make sure there are no failing tests.\n- Make sure there are no clippy warnings.\n- Update PROGRESS.md file.\n\nOnce you're ready:\n- Make sure the implementation is complete, clean, well-tested and ready for production release.\n- Output <promise>COMPLETE</promise> ONLY when all of this is done.\n",
+  "startedAt": "2026-01-30T18:25:47.319Z",
+  "model": "github-copilot/gpt-5.2-codex",
+  "agent": "opencode"
+}
