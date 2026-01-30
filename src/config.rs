@@ -63,10 +63,6 @@ pub fn find_container<'a>(config: &'a AppConfig, identifier: &str) -> Option<&'a
         .find(|c| c.name == identifier || c.label.as_deref() == Some(identifier))
 }
 
-pub fn find_route<'a>(config: &'a AppConfig, host_port: u16) -> Option<&'a RouteConfig> {
-    config.routes.iter().find(|r| r.host_port == host_port)
-}
-
 pub fn host_ports(config: &AppConfig) -> Vec<u16> {
     if config.routes.is_empty() {
         vec![DEFAULT_PORT]
@@ -103,19 +99,6 @@ mod tests {
         assert!(find_container(&config, "svc-a").is_some());
         assert!(find_container(&config, "A").is_some());
         assert!(find_container(&config, "missing").is_none());
-    }
-
-    #[test]
-    fn find_route_by_host_port() {
-        let config = AppConfig {
-            routes: vec![RouteConfig {
-                host_port: 9000,
-                target: "svc".to_string(),
-            }],
-            ..AppConfig::default()
-        };
-        assert!(find_route(&config, 9000).is_some());
-        assert!(find_route(&config, 8000).is_none());
     }
 
     #[test]

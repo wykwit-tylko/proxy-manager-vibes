@@ -2,16 +2,17 @@
 
 ## Overview
 - Goal: re-implement `proxy-manager.py` as a Rust CLI with an additional TUI.
-- Status: core config/storage/nginx/docker scaffolding in place; CLI/TUI still pending.
+- Status: core CLI implemented with Docker-backed operations; TUI baseline added.
 
 ## Completed
 - Cargo project initialized.
 - Core config/paths/nginx/storage/docker/ops modules with unit tests.
+- CLI command handlers for proxy operations, config, and discovery.
+- Basic TUI status/containers view.
 
 ## In Progress
-- Implement Docker integration and command handlers.
+- Extend CLI parity and TUI functionality.
 
 ## Todo
-- Add TUI for interactive management.
-- Add full CLI parity with the Python tool and update docs.
+- Add full CLI parity polish (help text, extra flags) and update docs.
 - Ensure formatting, tests, and clippy are clean; finalize release readiness.

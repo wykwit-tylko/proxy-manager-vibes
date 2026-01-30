@@ -16,6 +16,7 @@ pub trait DockerRuntime {
     fn container_network(&self, container: &str) -> Result<Option<String>>;
     fn build_image(&self, tag: &str, build_dir: &str) -> Result<()>;
     fn container_exists(&self, name: &str) -> Result<bool>;
+    fn container_status(&self, name: &str) -> Result<Option<String>>;
     fn run_container(&self, name: &str, image: &str, network: &str, ports: &[u16]) -> Result<()>;
     fn stop_remove_container(&self, name: &str) -> Result<()>;
     fn connect_network(&self, name: &str, network: &str) -> Result<()>;
@@ -36,6 +37,17 @@ impl CliDocker {
             return Err(anyhow::anyhow!("docker {:?} failed: {}", args, stderr));
         }
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    fn network_container_count(name: &str) -> Result<usize> {
+        let output = Self::run_command(&[
+            "network",
+            "inspect",
+            name,
+            "--format",
+            "{{len .Containers}}",
+        ])?;
+        Ok(output.trim().parse::<usize>().unwrap_or(0))
     }
 }
 
@@ -71,10 +83,11 @@ impl DockerRuntime for CliDocker {
             if name.is_empty() {
                 continue;
             }
+            let containers = Self::network_container_count(&name).unwrap_or(0);
             networks.push(NetworkInfo {
                 name,
                 driver,
-                containers: 0,
+                containers,
                 scope,
             });
         }
@@ -99,10 +112,10 @@ impl DockerRuntime for CliDocker {
             return Ok(None);
         }
         let value: serde_json::Value = serde_json::from_str(stdout.trim())?;
-        if let Some(obj) = value.as_object() {
-            if let Some(name) = obj.keys().next() {
-                return Ok(Some(name.to_string()));
-            }
+        if let Some(obj) = value.as_object()
+            && let Some(name) = obj.keys().next()
+        {
+            return Ok(Some(name.to_string()));
         }
         Ok(None)
     }
@@ -121,6 +134,23 @@ impl DockerRuntime for CliDocker {
         }
         let stdout = String::from_utf8_lossy(&output.stdout);
         Ok(stdout.lines().any(|l| l.trim() == name))
+    }
+
+    fn container_status(&self, name: &str) -> Result<Option<String>> {
+        let output = Command::new("docker")
+            .args(["inspect", name, "--format", "{{.State.Status}}"])
+            .output()
+            .with_context(|| format!("Failed to inspect container {}", name))?;
+        if !output.status.success() {
+            return Ok(None);
+        }
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let status = stdout.trim();
+        if status.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(status.to_string()))
+        }
     }
 
     fn run_container(&self, name: &str, image: &str, network: &str, ports: &[u16]) -> Result<()> {
@@ -191,6 +221,9 @@ mod tests {
         }
         fn container_exists(&self, _name: &str) -> Result<bool> {
             Ok(false)
+        }
+        fn container_status(&self, _name: &str) -> Result<Option<String>> {
+            Ok(None)
         }
         fn run_container(
             &self,
