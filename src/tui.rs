@@ -33,7 +33,7 @@ impl App {
         }
     }
 
-    fn refresh_data(&mut self) {
+    async fn refresh_data(&mut self) {
         let config_result = crate::config::load_config();
         match config_result {
             Ok(config) => {
@@ -67,9 +67,8 @@ impl App {
         let proxy_name = crate::config::get_proxy_name(None);
         match crate::docker::DockerClient::new() {
             Ok(docker) => {
-                let status = docker.get_container_status(&proxy_name);
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                match rt.block_on(status) {
+                let status = docker.get_container_status(&proxy_name).await;
+                match status {
                     Ok(Some(s)) => {
                         self.proxy_status = format!("{} ({})", proxy_name, s);
                     }
@@ -96,7 +95,7 @@ pub async fn run_tui() -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     let mut app = App::new();
-    app.refresh_data();
+    app.refresh_data().await;
 
     loop {
         terminal.draw(|f| {
@@ -149,7 +148,7 @@ pub async fn run_tui() -> Result<()> {
                         }
                     }
                     KeyCode::Char('r') => {
-                        app.refresh_data();
+                        app.refresh_data().await;
                         app.last_update = Instant::now();
                     }
                     _ => {}
@@ -158,7 +157,7 @@ pub async fn run_tui() -> Result<()> {
         }
 
         if app.last_update.elapsed() > Duration::from_secs(5) {
-            app.refresh_data();
+            app.refresh_data().await;
             app.last_update = Instant::now();
         }
     }
