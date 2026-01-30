@@ -9,8 +9,6 @@
 - Core config/paths/nginx/storage/docker/ops modules with unit tests.
 - CLI command handlers for proxy operations, config, and discovery.
 - Basic TUI status/containers view.
-
-## Completed
 - CLI help/usage aligned with Python tool.
 - Formatting, tests, and clippy clean.
 
