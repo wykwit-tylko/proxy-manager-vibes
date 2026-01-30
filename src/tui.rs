@@ -427,7 +427,13 @@ mod tests {
             .unwrap();
 
         let docker = FakeDocker::default();
-        let app = App::new(store.clone(), docker);
+        let app = App::new_with_timings(
+            store.clone(),
+            docker,
+            crate::app::Timings {
+                restart_delay: Duration::from_millis(0),
+            },
+        );
         let mut state = TuiState {
             app,
             cfg: store.load().unwrap(),

@@ -8,14 +8,40 @@ use std::fs;
 use std::path::Path;
 use tokio::time::{Duration, sleep};
 
+#[derive(Clone, Copy, Debug)]
+pub struct Timings {
+    pub restart_delay: Duration,
+}
+
+impl Default for Timings {
+    fn default() -> Self {
+        Self {
+            restart_delay: Duration::from_secs(1),
+        }
+    }
+}
+
 pub struct App<D: DockerApi> {
     pub store: Store,
     pub docker: D,
+    timings: Timings,
 }
 
 impl<D: DockerApi> App<D> {
     pub fn new(store: Store, docker: D) -> Self {
-        Self { store, docker }
+        Self {
+            store,
+            docker,
+            timings: Timings::default(),
+        }
+    }
+
+    pub fn new_with_timings(store: Store, docker: D, timings: Timings) -> Self {
+        Self {
+            store,
+            docker,
+            timings,
+        }
     }
 
     pub fn config_file_path(&self) -> &Path {
@@ -279,7 +305,7 @@ impl<D: DockerApi> App<D> {
         let mut out = Vec::new();
         out.push("Reloading proxy...".to_string());
         out.extend(self.stop_proxy().await?);
-        sleep(Duration::from_secs(1)).await;
+        sleep(self.timings.restart_delay).await;
         out.extend(self.start_proxy().await?);
         Ok(out)
     }
@@ -287,7 +313,7 @@ impl<D: DockerApi> App<D> {
     pub async fn restart_proxy(&self) -> Result<Vec<String>> {
         let mut out = Vec::new();
         out.extend(self.stop_proxy().await?);
-        sleep(Duration::from_secs(1)).await;
+        sleep(self.timings.restart_delay).await;
         out.extend(self.start_proxy().await?);
         Ok(out)
     }
@@ -473,7 +499,13 @@ mod tests {
             detected_network: Some("net1".to_string()),
             ..Default::default()
         };
-        let app = App::new(store.clone(), docker);
+        let app = App::new_with_timings(
+            store.clone(),
+            docker,
+            Timings {
+                restart_delay: Duration::from_millis(0),
+            },
+        );
 
         let out = app
             .add_container("app".to_string(), None, None, None)
@@ -494,7 +526,13 @@ mod tests {
         let td = tempfile::tempdir().unwrap();
         let store = Store::new_with_config_dir(td.path());
         let docker = FakeDocker::default();
-        let app = App::new(store.clone(), docker);
+        let app = App::new_with_timings(
+            store.clone(),
+            docker,
+            Timings {
+                restart_delay: Duration::from_millis(0),
+            },
+        );
 
         let _ = app
             .add_container("a".to_string(), None, None, Some("n".to_string()))
@@ -519,5 +557,246 @@ mod tests {
         assert_eq!(cfg.routes.len(), 2);
         assert_eq!(cfg.routes[0].host_port, 8001);
         assert_eq!(cfg.routes[1].host_port, 8002);
+    }
+
+    type RunCall = (String, String, String, Vec<u16>);
+
+    #[derive(Clone, Default)]
+    struct RecordingDocker {
+        exists: Arc<Mutex<bool>>,
+        stop_removed: Arc<Mutex<bool>>,
+        ensured: Arc<Mutex<Vec<String>>>,
+        built: Arc<Mutex<Vec<String>>>,
+        ran: Arc<Mutex<Vec<RunCall>>>,
+        connected: Arc<Mutex<Vec<(String, String)>>>,
+        fail_connect_network: Option<String>,
+    }
+
+    impl RecordingDocker {
+        fn set_exists(&self, v: bool) {
+            *self.exists.lock().unwrap() = v;
+        }
+
+        fn ensured(&self) -> Vec<String> {
+            self.ensured.lock().unwrap().clone()
+        }
+    }
+
+    #[async_trait]
+    impl DockerApi for RecordingDocker {
+        async fn list_containers(&self, _all: bool) -> Result<Vec<String>> {
+            Ok(vec![])
+        }
+
+        async fn list_networks(&self) -> Result<Vec<NetworkSummary>> {
+            Ok(vec![])
+        }
+
+        async fn ensure_network(&self, network: &str) -> Result<()> {
+            self.ensured.lock().unwrap().push(network.to_string());
+            Ok(())
+        }
+
+        async fn container_primary_network(&self, _container: &str) -> Result<Option<String>> {
+            Ok(None)
+        }
+
+        async fn container_exists(&self, _name: &str) -> Result<bool> {
+            Ok(*self.exists.lock().unwrap())
+        }
+
+        async fn container_status(&self, _name: &str) -> Result<Option<String>> {
+            Ok(None)
+        }
+
+        async fn stop_and_remove_container(&self, _name: &str) -> Result<bool> {
+            let removed = *self.stop_removed.lock().unwrap();
+            if removed {
+                self.set_exists(false);
+            }
+            Ok(removed)
+        }
+
+        async fn build_image_from_tar(&self, tag: &str, _tar_bytes: Vec<u8>) -> Result<()> {
+            self.built.lock().unwrap().push(tag.to_string());
+            Ok(())
+        }
+
+        async fn run_container_with_ports(
+            &self,
+            name: &str,
+            image: &str,
+            network: &str,
+            ports: &[u16],
+        ) -> Result<()> {
+            self.ran.lock().unwrap().push((
+                name.to_string(),
+                image.to_string(),
+                network.to_string(),
+                ports.to_vec(),
+            ));
+            self.set_exists(true);
+            Ok(())
+        }
+
+        async fn connect_container_to_network(&self, container: &str, network: &str) -> Result<()> {
+            if self
+                .fail_connect_network
+                .as_deref()
+                .is_some_and(|n| n == network)
+            {
+                return Err(anyhow!("connect failed"));
+            }
+            self.connected
+                .lock()
+                .unwrap()
+                .push((container.to_string(), network.to_string()));
+            Ok(())
+        }
+
+        async fn stream_logs(
+            &self,
+            _name: &str,
+            _follow: bool,
+            _tail: usize,
+        ) -> Result<Vec<String>> {
+            Ok(vec![])
+        }
+    }
+
+    struct TestApp {
+        _td: tempfile::TempDir,
+        app: App<RecordingDocker>,
+    }
+
+    fn app_with_cfg_and_docker(cfg: Config, docker: RecordingDocker) -> TestApp {
+        let td = tempfile::tempdir().unwrap();
+        let store = Store::new_with_config_dir(td.path());
+        store.save(&cfg).unwrap();
+        let app = App::new_with_timings(
+            store,
+            docker,
+            Timings {
+                restart_delay: Duration::from_millis(0),
+            },
+        );
+        TestApp { _td: td, app }
+    }
+
+    #[tokio::test]
+    async fn start_proxy_ensures_networks_and_runs_with_ports_and_connections() {
+        let docker = RecordingDocker::default();
+        docker.set_exists(false);
+
+        let cfg = Config {
+            containers: vec![
+                ContainerConfig {
+                    name: "a".to_string(),
+                    label: None,
+                    port: Some(9000),
+                    network: None,
+                },
+                ContainerConfig {
+                    name: "b".to_string(),
+                    label: None,
+                    port: Some(9001),
+                    network: Some("net2".to_string()),
+                },
+            ],
+            routes: vec![
+                Route {
+                    host_port: 8001,
+                    target: "a".to_string(),
+                },
+                Route {
+                    host_port: 8002,
+                    target: "b".to_string(),
+                },
+            ],
+            proxy_name: "proxy-manager".to_string(),
+            network: "proxy-net".to_string(),
+        };
+
+        let test_app = app_with_cfg_and_docker(cfg.clone(), docker.clone());
+        let out = test_app.app.start_proxy().await.unwrap();
+
+        let ensured = docker.ensured();
+        assert!(ensured.contains(&"proxy-net".to_string()));
+        assert!(ensured.contains(&"net2".to_string()));
+
+        let ran = docker.ran.lock().unwrap().clone();
+        assert_eq!(ran.len(), 1);
+        assert_eq!(ran[0].0, cfg.proxy_name);
+        assert_eq!(ran[0].1, cfg.proxy_image());
+        assert_eq!(ran[0].2, cfg.network);
+        assert_eq!(ran[0].3, vec![8001, 8002]);
+
+        let connected = docker.connected.lock().unwrap().clone();
+        assert_eq!(
+            connected,
+            vec![("proxy-manager".to_string(), "net2".to_string())]
+        );
+
+        assert!(
+            out.iter()
+                .any(|l| l.contains("Proxy started on port(s): 8001, 8002"))
+        );
+    }
+
+    #[tokio::test]
+    async fn start_proxy_skips_build_and_run_when_proxy_already_exists() {
+        let docker = RecordingDocker::default();
+        docker.set_exists(true);
+
+        let cfg = Config {
+            containers: vec![ContainerConfig {
+                name: "a".to_string(),
+                label: None,
+                port: None,
+                network: None,
+            }],
+            routes: vec![Route {
+                host_port: 8000,
+                target: "a".to_string(),
+            }],
+            ..Config::default()
+        };
+
+        let test_app = app_with_cfg_and_docker(cfg, docker.clone());
+        let out = test_app.app.start_proxy().await.unwrap();
+
+        assert!(out.iter().any(|l| l.contains("Proxy already running")));
+        assert!(docker.built.lock().unwrap().is_empty());
+        assert!(docker.ran.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn start_proxy_includes_warning_if_network_connect_fails() {
+        let docker = RecordingDocker {
+            fail_connect_network: Some("net2".to_string()),
+            ..Default::default()
+        };
+        docker.set_exists(false);
+
+        let cfg = Config {
+            containers: vec![ContainerConfig {
+                name: "a".to_string(),
+                label: None,
+                port: None,
+                network: Some("net2".to_string()),
+            }],
+            routes: vec![Route {
+                host_port: 8000,
+                target: "a".to_string(),
+            }],
+            ..Config::default()
+        };
+
+        let test_app = app_with_cfg_and_docker(cfg, docker);
+        let out = test_app.app.start_proxy().await.unwrap();
+        assert!(
+            out.iter()
+                .any(|l| l.contains("Warning: Could not connect to network net2"))
+        );
     }
 }
