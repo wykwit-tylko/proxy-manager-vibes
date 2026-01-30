@@ -21,11 +21,6 @@ impl DockerClient {
         Ok(Self { docker })
     }
 
-    pub async fn ping(&self) -> anyhow::Result<()> {
-        self.docker.ping().await?;
-        Ok(())
-    }
-
     pub async fn list_containers(
         &self,
         all: bool,
@@ -114,23 +109,6 @@ impl DockerClient {
             self.docker.create_network(options).await?;
         }
 
-        Ok(())
-    }
-
-    pub async fn connect_container_to_network(
-        &self,
-        container_id: &str,
-        network_name: &str,
-    ) -> anyhow::Result<()> {
-        self.docker
-            .connect_network(
-                network_name,
-                bollard::network::ConnectNetworkOptions {
-                    container: container_id,
-                    ..Default::default()
-                },
-            )
-            .await?;
         Ok(())
     }
 

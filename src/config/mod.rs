@@ -120,18 +120,8 @@ impl Config {
             .find(|c| c.name == identifier || c.label.as_deref() == Some(identifier))
     }
 
-    pub fn find_container_mut(&mut self, identifier: &str) -> Option<&mut ContainerConfig> {
-        self.containers
-            .iter_mut()
-            .find(|c| c.name == identifier || c.label.as_deref() == Some(identifier))
-    }
-
     pub fn find_route(&self, host_port: u16) -> Option<&Route> {
         self.routes.iter().find(|r| r.host_port == host_port)
-    }
-
-    pub fn find_route_mut(&mut self, host_port: u16) -> Option<&mut Route> {
-        self.routes.iter_mut().find(|r| r.host_port == host_port)
     }
 
     pub fn add_or_update_container(
