@@ -1,27 +1,22 @@
 use anyhow::Result;
-use crossterm::{
-    event::{self, Event, KeyCode},
-    execute::command,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+use crossterm::event::{self, Event, KeyCode};
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
+use proxy_manager::{
+    Config, ConfigManager, ContainerManager, DockerClient, ProxyManager, RouteManager,
 };
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    text::Span,
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     Frame, Terminal,
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::config::{Config, ConfigManager};
-use crate::containers::ContainerManager;
-use crate::docker::DockerClient;
-use crate::proxy::ProxyManager;
-use crate::routes::RouteManager;
-
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 enum MenuItem {
     Status,
     Containers,
@@ -63,7 +58,7 @@ struct TuiState {
     input_mode: InputMode,
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 enum InputMode {
     Menu,
     TextInput(String),
@@ -98,7 +93,7 @@ impl TuiState {
 async fn main() -> Result<()> {
     enable_raw_mode()?;
     let mut stdout = std::io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
+    crossterm::execute!(stdout, EnterAlternateScreen)?;
 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -111,7 +106,7 @@ async fn main() -> Result<()> {
         config_manager.clone(),
         docker.clone(),
     )));
-    let container_manager = Arc::new(ContainerManager::new(config_manager.clone(), docker));
+    let container_manager = ContainerManager::new(config_manager.clone(), docker);
     let route_manager = RouteManager::new(config_manager.clone(), {
         let pm = proxy_manager.lock().await;
         pm.clone()
@@ -119,16 +114,11 @@ async fn main() -> Result<()> {
 
     let mut state = TuiState::new(config);
 
-    let result = run_app(
-        &mut terminal,
-        &mut state,
-        container_manager,
-        route_manager,
-    )
-    .await;
+    let result = run_app(&mut terminal, &mut state, container_manager, route_manager).await;
 
     disable_raw_mode()?;
-    execute!(std::io::stdout(), LeaveAlternateScreen)?;
+    let mut stdout2 = std::io::stdout();
+    crossterm::execute!(stdout2, LeaveAlternateScreen)?;
 
     result
 }
@@ -137,7 +127,7 @@ async fn run_app(
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     state: &mut TuiState,
     container_manager: ContainerManager,
-    route_manager: RouteManager,
+    _route_manager: RouteManager,
 ) -> Result<()> {
     loop {
         terminal.draw(|f| ui(f, state))?;
@@ -156,44 +146,42 @@ async fn run_app(
                             state.app.selected_menu += 1;
                         }
                     }
-                    KeyCode::Enter => {
-                        match state.app.menu_items[state.app.selected_menu] {
-                            MenuItem::Status => {
-                                state.app.config = container_manager.config_manager.load()?;
-                                state.input_mode = InputMode::Confirm;
-                            }
-                            MenuItem::Containers => {
-                                state.app.config = container_manager.config_manager.load()?;
-                                state.input_mode = InputMode::Confirm;
-                            }
-                            MenuItem::Routes => {
-                                state.app.config = container_manager.config_manager.load()?;
-                                state.input_mode = InputMode::Confirm;
-                            }
-                            MenuItem::AddContainer => {
-                                state.input_mode = InputMode::TextInput(String::new());
-                            }
-                            MenuItem::RemoveContainer => {
-                                state.app.config = container_manager.config_manager.load()?;
-                                state.input_mode = InputMode::Confirm;
-                            }
-                            MenuItem::SwitchRoute => {
-                                state.app.config = container_manager.config_manager.load()?;
-                                state.input_mode = InputMode::Confirm;
-                            }
-                            MenuItem::StartProxy => {
-                                state.input_mode = InputMode::Confirm;
-                            }
-                            MenuItem::StopProxy => {
-                                state.input_mode = InputMode::Confirm;
-                            }
-                            MenuItem::Logs => {
-                                state.app.config = container_manager.config_manager.load()?;
-                                state.input_mode = InputMode::Confirm;
-                            }
-                            MenuItem::Quit => return Ok(()),
+                    KeyCode::Enter => match state.app.menu_items[state.app.selected_menu] {
+                        MenuItem::Status => {
+                            state.app.config = container_manager.config_manager().load()?;
+                            state.input_mode = InputMode::Confirm;
                         }
-                    }
+                        MenuItem::Containers => {
+                            state.app.config = container_manager.config_manager().load()?;
+                            state.input_mode = InputMode::Confirm;
+                        }
+                        MenuItem::Routes => {
+                            state.app.config = container_manager.config_manager().load()?;
+                            state.input_mode = InputMode::Confirm;
+                        }
+                        MenuItem::AddContainer => {
+                            state.input_mode = InputMode::TextInput(String::new());
+                        }
+                        MenuItem::RemoveContainer => {
+                            state.app.config = container_manager.config_manager().load()?;
+                            state.input_mode = InputMode::Confirm;
+                        }
+                        MenuItem::SwitchRoute => {
+                            state.app.config = container_manager.config_manager().load()?;
+                            state.input_mode = InputMode::Confirm;
+                        }
+                        MenuItem::StartProxy => {
+                            state.input_mode = InputMode::Confirm;
+                        }
+                        MenuItem::StopProxy => {
+                            state.input_mode = InputMode::Confirm;
+                        }
+                        MenuItem::Logs => {
+                            state.app.config = container_manager.config_manager().load()?;
+                            state.input_mode = InputMode::Confirm;
+                        }
+                        MenuItem::Quit => return Ok(()),
+                    },
                     _ => {}
                 },
                 InputMode::TextInput(ref input) => match key.code {
@@ -216,7 +204,8 @@ async fn run_app(
                     }
                     KeyCode::Backspace => {
                         if !input.is_empty() {
-                            let new_input = input.chars().take(input.len().saturating_sub(1)).collect();
+                            let new_input =
+                                input.chars().take(input.len().saturating_sub(1)).collect();
                             state.input_mode = InputMode::TextInput(new_input);
                         }
                     }
@@ -230,7 +219,7 @@ async fn run_app(
                     KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
                         match state.app.menu_items[state.app.selected_menu] {
                             MenuItem::Status => {
-                                let _ = show_status(&state.app.config);
+                                show_status(&state.app.config);
                             }
                             MenuItem::Containers => {
                                 let _ = container_manager.list_containers();
@@ -240,22 +229,22 @@ async fn run_app(
                             }
                             MenuItem::StartProxy => {
                                 let pm = ProxyManager::new(
-                                    container_manager.config_manager.clone(),
-                                    container_manager.docker.clone(),
+                                    container_manager.config_manager().clone(),
+                                    container_manager.docker().clone(),
                                 );
                                 let _ = pm.start_proxy().await;
                             }
                             MenuItem::StopProxy => {
                                 let pm = ProxyManager::new(
-                                    container_manager.config_manager.clone(),
-                                    container_manager.docker.clone(),
+                                    container_manager.config_manager().clone(),
+                                    container_manager.docker().clone(),
                                 );
                                 let _ = pm.stop_proxy().await;
                             }
                             MenuItem::Logs => {
                                 let pm = ProxyManager::new(
-                                    container_manager.config_manager.clone(),
-                                    container_manager.docker.clone(),
+                                    container_manager.config_manager().clone(),
+                                    container_manager.docker().clone(),
                                 );
                                 let _ = pm.show_logs(true, 100).await;
                             }
@@ -279,23 +268,21 @@ async fn run_app(
     }
 }
 
-fn ui(f: &mut Frame<CrosstermBackend<std::io::Stdout>>, state: &TuiState) {
+fn ui(f: &mut Frame, state: &TuiState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints(
-            [
-                Constraint::Length(3),
-                Constraint::Min(1),
-            ]
-            .as_ref(),
-        )
+        .constraints([Constraint::Length(3), Constraint::Min(1)].as_ref())
         .split(f.area());
 
     match &state.input_mode {
         InputMode::Menu => {
             let title = Paragraph::new("Proxy Manager TUI")
-                .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+                .style(
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                )
                 .alignment(Alignment::Center);
 
             f.render_widget(title, chunks[0]);
@@ -323,7 +310,11 @@ fn ui(f: &mut Frame<CrosstermBackend<std::io::Stdout>>, state: &TuiState) {
         }
         InputMode::TextInput(ref input) => {
             let title = Paragraph::new(format!("Enter container name: {}", input))
-                .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+                .style(
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                )
                 .alignment(Alignment::Center);
 
             f.render_widget(title, chunks[0]);
@@ -336,7 +327,11 @@ fn ui(f: &mut Frame<CrosstermBackend<std::io::Stdout>>, state: &TuiState) {
         }
         InputMode::Confirm => {
             let title = Paragraph::new("Confirm action (y/n)?")
-                .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+                .style(
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                )
                 .alignment(Alignment::Center);
 
             f.render_widget(title, chunks[0]);
@@ -369,4 +364,40 @@ fn show_routes(config: &Config) {
         }
     }
     println!();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_menu_item_to_string() {
+        assert_eq!(MenuItem::Status.to_string(), "Status");
+        assert_eq!(MenuItem::Containers.to_string(), "Containers");
+        assert_eq!(MenuItem::Routes.to_string(), "Routes");
+        assert_eq!(MenuItem::AddContainer.to_string(), "Add Container");
+        assert_eq!(MenuItem::RemoveContainer.to_string(), "Remove Container");
+        assert_eq!(MenuItem::SwitchRoute.to_string(), "Switch Route");
+        assert_eq!(MenuItem::StartProxy.to_string(), "Start Proxy");
+        assert_eq!(MenuItem::StopProxy.to_string(), "Stop Proxy");
+        assert_eq!(MenuItem::Logs.to_string(), "Logs");
+        assert_eq!(MenuItem::Quit.to_string(), "Quit");
+    }
+
+    #[test]
+    fn test_menu_item_equality() {
+        assert_eq!(MenuItem::Status, MenuItem::Status);
+        assert_ne!(MenuItem::Status, MenuItem::Containers);
+    }
+
+    #[test]
+    fn test_input_mode_equality() {
+        assert_eq!(InputMode::Menu, InputMode::Menu);
+        assert_eq!(
+            InputMode::TextInput(String::new()),
+            InputMode::TextInput(String::new())
+        );
+        assert_eq!(InputMode::Confirm, InputMode::Confirm);
+        assert_ne!(InputMode::Menu, InputMode::Confirm);
+    }
 }

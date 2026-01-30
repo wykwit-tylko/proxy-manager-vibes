@@ -8,6 +8,10 @@ repository = "https://github.com/user/proxy-manager"
 keywords = ["docker", "nginx", "proxy", "cli", "tui"]
 categories = ["command-line-utilities", "network-programming"]
 
+[lib]
+name = "proxy_manager"
+path = "src/lib.rs"
+
 [[bin]]
 name = "proxy-manager"
 path = "src/main.rs"

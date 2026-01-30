@@ -1,18 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-
-mod config;
-mod containers;
-mod docker;
-mod nginx;
-mod proxy;
-mod routes;
-
-use config::ConfigManager;
-use containers::ContainerManager;
-use docker::DockerClient;
-use proxy::ProxyManager;
-use routes::RouteManager;
+use proxy_manager::{ConfigManager, ContainerManager, DockerClient, ProxyManager, RouteManager};
 
 #[derive(Parser)]
 #[command(
@@ -241,6 +229,6 @@ fn show_config(config_manager: &ConfigManager) -> Result<()> {
 }
 
 async fn run_tui() -> Result<()> {
-    println!("TUI mode is not yet implemented. Use CLI commands instead.");
+    println!("To launch the TUI, run: proxy-manager-tui");
     Ok(())
 }

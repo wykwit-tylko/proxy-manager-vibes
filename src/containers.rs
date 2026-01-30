@@ -14,6 +14,14 @@ impl ContainerManager {
         }
     }
 
+    pub fn config_manager(&self) -> &ConfigManager {
+        &self.config_manager
+    }
+
+    pub fn docker(&self) -> &crate::docker::DockerClient {
+        &self.docker
+    }
+
     pub async fn add_container(
         &self,
         container_name: String,
@@ -97,8 +105,12 @@ impl ContainerManager {
         }
 
         let container_name = container.unwrap().name.clone();
-        config.containers.retain(|c| c.name != container_name.as_str());
-        config.routes.retain(|r| r.target != container_name.as_str());
+        config
+            .containers
+            .retain(|c| c.name != container_name.as_str());
+        config
+            .routes
+            .retain(|r| r.target != container_name.as_str());
         self.config_manager.save(&config)?;
         println!("Removed container: {}", container_name);
 

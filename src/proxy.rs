@@ -21,6 +21,14 @@ impl ProxyManager {
         }
     }
 
+    pub fn config_manager(&self) -> &ConfigManager {
+        &self.config_manager
+    }
+
+    pub fn docker(&self) -> &DockerClient {
+        &self.docker
+    }
+
     pub async fn build_proxy(&self) -> Result<()> {
         let config = self.config_manager.load()?;
 
