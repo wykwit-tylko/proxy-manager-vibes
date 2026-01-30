@@ -14,13 +14,14 @@ Goal: Re-implement `proxy-manager.py` in Rust and add a TUI.
 - Implement Nginx config generation (unit-tested).
 - Implement Rust CLI surface (clap) matching Python commands.
 - Implement Docker integration (build image, run container, networks, logs) via Docker API.
+- Implement initial TUI (ratatui): status view + start/stop/reload + route switch.
 
 ## In Progress
 
-- Implement TUI (ratatui) for status + quick actions.
+- Validate parity vs `proxy-manager.py` and finalize UX.
 
 ## Todo (Next)
 
-- Implement TUI (ratatui) for status + quick actions.
-- Add tests (unit tests for pure logic; mock Docker for command logic).
-- Add CI-quality checks in local flow: `cargo fmt`, `cargo test`, `cargo clippy`.
+- Compare remaining Python behaviors (edge cases, output text) and align.
+- Add integration-ish tests for App flows (start/stop/reload) with a FakeDocker.
+- Add docs/readme for TUI usage + keybindings.

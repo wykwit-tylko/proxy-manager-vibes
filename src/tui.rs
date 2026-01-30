@@ -115,6 +115,13 @@ impl<D: DockerApi> TuiState<D> {
             self.messages.push_back(l);
         }
     }
+
+    fn selected_container_name(&self) -> Option<String> {
+        self.cfg
+            .containers
+            .get(self.selected)
+            .map(|c| c.name.clone())
+    }
 }
 
 pub async fn run<D: DockerApi>(store: Store, docker: D) -> Result<()> {
@@ -172,9 +179,10 @@ async fn tui_loop<D: DockerApi>(
             draw_footer(f, chunks[2], &state.messages);
         })?;
 
-        if event::poll(tick)? && let Event::Key(key) = event::read()? {
-            if handle_key(key, state).await? {
-                return Ok(());
+        if event::poll(tick)? {
+            match event::read()? {
+                Event::Key(key) if handle_key(key, state).await? => return Ok(()),
+                _ => {}
             }
         }
     }
@@ -195,6 +203,15 @@ async fn handle_key<D: DockerApi>(key: KeyEvent, state: &mut TuiState<D>) -> Res
         (KeyCode::Char('u'), _) => {
             state.refresh().await?;
             state.push_messages(vec!["Refreshed".to_string()]);
+        }
+        (KeyCode::Enter, _) => {
+            if let Some(name) = state.selected_container_name() {
+                let out = state.app.switch_target(name, Some(DEFAULT_PORT)).await?;
+                state.push_messages(out);
+                let _ = state.refresh().await;
+            } else {
+                state.push_messages(vec!["No container selected".to_string()]);
+            }
         }
         (KeyCode::Char('s'), _) => {
             let out = state.app.start_proxy().await?;
@@ -219,7 +236,7 @@ async fn handle_key<D: DockerApi>(key: KeyEvent, state: &mut TuiState<D>) -> Res
 
 fn draw_header(f: &mut ratatui::Frame, area: Rect, cfg: &Config, proxy_status: Option<&str>) {
     let vm = build_view_model(cfg, proxy_status);
-    let help = "q quit | u refresh | s start | t stop | r reload | j/k move";
+    let help = "q quit | u refresh | enter switch :8000 -> selected | s start | t stop | r reload | j/k move";
     let lines = vec![
         Line::from(vec![Span::styled(
             vm.title,
@@ -295,6 +312,10 @@ fn draw_footer(f: &mut ratatui::Frame, area: Rect, messages: &VecDeque<String>) 
 mod tests {
     use super::*;
     use crate::config::{ContainerConfig, Route};
+    use crate::docker::NetworkSummary;
+    use crate::store::Store;
+    use async_trait::async_trait;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn view_model_formats_routes_and_title() {
@@ -318,5 +339,117 @@ mod tests {
         assert!(vm.title.contains("running"));
         assert!(vm.routes.iter().any(|r| r.contains("8001")));
         assert!(vm.containers.iter().any(|c| c.contains("app:9000")));
+    }
+
+    #[derive(Clone, Default)]
+    struct FakeDocker {
+        ensured: Arc<Mutex<Vec<String>>>,
+    }
+
+    #[async_trait]
+    impl DockerApi for FakeDocker {
+        async fn list_containers(&self, _all: bool) -> Result<Vec<String>> {
+            Ok(vec![])
+        }
+
+        async fn list_networks(&self) -> Result<Vec<NetworkSummary>> {
+            Ok(vec![])
+        }
+
+        async fn ensure_network(&self, network: &str) -> Result<()> {
+            self.ensured.lock().unwrap().push(network.to_string());
+            Ok(())
+        }
+
+        async fn container_primary_network(&self, _container: &str) -> Result<Option<String>> {
+            Ok(None)
+        }
+
+        async fn container_exists(&self, _name: &str) -> Result<bool> {
+            Ok(false)
+        }
+
+        async fn container_status(&self, _name: &str) -> Result<Option<String>> {
+            Ok(None)
+        }
+
+        async fn stop_and_remove_container(&self, _name: &str) -> Result<bool> {
+            Ok(false)
+        }
+
+        async fn build_image_from_tar(&self, _tag: &str, _tar_bytes: Vec<u8>) -> Result<()> {
+            Ok(())
+        }
+
+        async fn run_container_with_ports(
+            &self,
+            _name: &str,
+            _image: &str,
+            _network: &str,
+            _ports: &[u16],
+        ) -> Result<()> {
+            Ok(())
+        }
+
+        async fn connect_container_to_network(
+            &self,
+            _container: &str,
+            _network: &str,
+        ) -> Result<()> {
+            Ok(())
+        }
+
+        async fn stream_logs(
+            &self,
+            _name: &str,
+            _follow: bool,
+            _tail: usize,
+        ) -> Result<Vec<String>> {
+            Ok(vec![])
+        }
+    }
+
+    #[tokio::test]
+    async fn enter_switches_default_port_to_selected_container() {
+        let td = tempfile::tempdir().unwrap();
+        let store = Store::new_with_config_dir(td.path());
+        store
+            .save(&Config {
+                containers: vec![ContainerConfig {
+                    name: "app".to_string(),
+                    label: None,
+                    port: Some(9000),
+                    network: None,
+                }],
+                routes: vec![],
+                ..Config::default()
+            })
+            .unwrap();
+
+        let docker = FakeDocker::default();
+        let app = App::new(store.clone(), docker);
+        let mut state = TuiState {
+            app,
+            cfg: store.load().unwrap(),
+            proxy_status: None,
+            selected: 0,
+            messages: VecDeque::with_capacity(200),
+            last_refresh: Instant::now(),
+        };
+
+        let key = KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE);
+        let quit = handle_key(key, &mut state).await.unwrap();
+        assert!(!quit);
+
+        let cfg = store.load().unwrap();
+        assert_eq!(cfg.routes.len(), 1);
+        assert_eq!(cfg.routes[0].host_port, DEFAULT_PORT);
+        assert_eq!(cfg.routes[0].target, "app");
+        assert!(
+            state
+                .messages
+                .iter()
+                .any(|m| m.contains("Adding route: 8000 -> app"))
+        );
     }
 }
