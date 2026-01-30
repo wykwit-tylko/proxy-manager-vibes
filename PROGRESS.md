@@ -4,8 +4,8 @@ Goal: Re-implement `proxy-manager.py` in Rust and add a TUI.
 
 ## Status
 
-- Current iteration: 2
-- Repo state: Rust CLI + Docker backend + TUI implemented; remaining parity checks pending.
+- Current iteration: 3
+- Repo state: Rust CLI + Docker backend + TUI implemented; fmt/tests/clippy clean.
 
 ## Completed
 
@@ -20,9 +20,8 @@ Goal: Re-implement `proxy-manager.py` in Rust and add a TUI.
 
 ## In Progress
 
-- Validate parity vs `proxy-manager.py` and finalize UX.
+- (none)
 
 ## Todo (Next)
 
-- Compare remaining Python behaviors (edge cases, output text) and align.
-- Add docs/readme for TUI usage + keybindings.
+- (none)
