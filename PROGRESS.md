@@ -15,6 +15,8 @@ Goal: Re-implement `proxy-manager.py` in Rust and add a TUI.
 - Implement Rust CLI surface (clap) matching Python commands.
 - Implement Docker integration (build image, run container, networks, logs) via Docker API.
 - Implement initial TUI (ratatui): status view + start/stop/reload + route switch.
+- Add unit tests for App flow behavior via FakeDocker.
+- Add README covering CLI + TUI usage.
 
 ## In Progress
 
@@ -23,5 +25,4 @@ Goal: Re-implement `proxy-manager.py` in Rust and add a TUI.
 ## Todo (Next)
 
 - Compare remaining Python behaviors (edge cases, output text) and align.
-- Add integration-ish tests for App flows (start/stop/reload) with a FakeDocker. (Done: start/stop/reload/stop-port)
 - Add docs/readme for TUI usage + keybindings.
