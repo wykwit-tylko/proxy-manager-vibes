@@ -7,7 +7,7 @@ mod paths;
 mod storage;
 mod tui;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -19,6 +19,7 @@ use crate::docker::CliDocker;
 #[derive(Parser)]
 #[command(name = "proxy-manager")]
 #[command(about = "Manage Nginx proxy routes for Docker containers", long_about = None)]
+#[command(after_long_help = cli::long_help())]
 struct Args {
     #[command(subcommand)]
     command: Option<Command>,
@@ -26,21 +27,28 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Command {
+    #[command(about = "Start the proxy with all configured routes")]
     Start,
-    Stop {
-        port: Option<u16>,
-    },
+    #[command(about = "Stop the proxy or remove a single route")]
+    Stop { port: Option<u16> },
+    #[command(about = "Stop and start the proxy")]
     Restart,
+    #[command(about = "Rebuild and restart the proxy")]
     Reload,
+    #[command(about = "List configured containers")]
     List,
+    #[command(about = "List Docker networks")]
     Networks,
+    #[command(about = "Show proxy status and active routes")]
     Status,
+    #[command(about = "Show proxy logs")]
     Logs {
         #[arg(short = 'f', long = "follow")]
         follow: bool,
         #[arg(short = 'n', long = "tail", default_value_t = 100)]
         tail: usize,
     },
+    #[command(about = "Add or update a container in config")]
     Add {
         container: String,
         label: Option<String>,
@@ -49,18 +57,20 @@ enum Command {
         #[arg(short = 'n', long = "network")]
         network: Option<String>,
     },
-    Remove {
-        identifier: String,
-    },
+    #[command(about = "Remove a container from config")]
+    Remove { identifier: String },
+    #[command(about = "Route a host port to a container")]
     Switch {
         identifier: String,
         port: Option<u16>,
     },
-    Detect {
-        filter: Option<String>,
-    },
+    #[command(about = "List Docker containers (optionally filtered)")]
+    Detect { filter: Option<String> },
+    #[command(about = "Show config file path and contents")]
     Config,
+    #[command(about = "Install proxy-manager in ~/.local/bin")]
     Install,
+    #[command(about = "Launch interactive TUI")]
     Tui,
 }
 
@@ -226,10 +236,15 @@ fn main() -> Result<()> {
             println!("{}", json);
         }
         Some(Command::Install) => {
-            let path = install_cli()?;
+            let (path, in_path) = install_cli()?;
             println!("Created hardlink: {}", path.display());
             println!();
             println!("See 'proxy-manager --help' for a quick start guide.");
+            if !in_path {
+                println!("NOTE: Add ~/.local/bin to your PATH:");
+                println!("  export PATH=\"~/.local/bin:$PATH\"");
+                println!("  # Add to ~/.bashrc or ~/.zshrc to persist");
+            }
         }
         Some(Command::Tui) => {
             tui::run_tui(&runtime)?;
@@ -244,7 +259,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn install_cli() -> Result<PathBuf> {
+fn install_cli() -> Result<(PathBuf, bool)> {
     let exe = std::env::current_exe()?;
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let target_dir = PathBuf::from(home).join(".local").join("bin");
@@ -254,5 +269,33 @@ fn install_cli() -> Result<PathBuf> {
         std::fs::remove_file(&target)?;
     }
     std::fs::hard_link(&exe, &target)?;
-    Ok(target)
+    let in_path = path_contains_dir(&target_dir);
+    Ok((target, in_path))
+}
+
+fn path_contains_dir(dir: &Path) -> bool {
+    std::env::var_os("PATH")
+        .map(|paths| std::env::split_paths(&paths).any(|p| p == dir))
+        .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn path_contains_dir_checks_paths() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let original = std::env::var_os("PATH");
+        let paths = std::env::join_paths([dir.path()]).expect("join paths");
+        unsafe {
+            std::env::set_var("PATH", &paths);
+        }
+        assert!(path_contains_dir(dir.path()));
+        if let Some(value) = original {
+            unsafe {
+                std::env::set_var("PATH", value);
+            }
+        }
+    }
 }

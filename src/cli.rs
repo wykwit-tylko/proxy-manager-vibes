@@ -24,6 +24,10 @@ pub fn format_status(status: &StatusInfo) -> String {
     lines.join("\n")
 }
 
+pub fn long_help() -> &'static str {
+    "Quick Start:\n  proxy-manager add my-app-v1 Foo -p 8000\n  proxy-manager add my-app-v2 Bar -p 8080\n  proxy-manager switch my-app-v1 8000\n  proxy-manager switch my-app-v2 8001\n  proxy-manager start\n  proxy-manager status\n\nContainer Management:\n  proxy-manager add <name> [label]\n  proxy-manager add <name> -p 8080\n  proxy-manager add <name> -n custom-net\n  proxy-manager list\n  proxy-manager remove <name|label>\n\nRoute Management:\n  proxy-manager switch <container> [port]\n  proxy-manager stop [port]\n\nProxy Operations:\n  proxy-manager start\n  proxy-manager stop [port]\n  proxy-manager restart\n  proxy-manager reload\n  proxy-manager status\n\nLogging:\n  proxy-manager logs\n  proxy-manager logs -f\n  proxy-manager logs -n 50\n\nDiscovery:\n  proxy-manager detect [name]\n  proxy-manager networks\n\nConfiguration:\n  proxy-manager config\n\nInstallation:\n  proxy-manager install\n  "
+}
+
 fn format_route(route: &RouteStatus) -> String {
     if route.missing {
         format!(
@@ -56,5 +60,12 @@ mod tests {
             routes: vec![],
         };
         assert_eq!(format_status(&status), "Proxy not running");
+    }
+
+    #[test]
+    fn long_help_contains_quick_start() {
+        let help = long_help();
+        assert!(help.contains("Quick Start"));
+        assert!(help.contains("proxy-manager start"));
     }
 }

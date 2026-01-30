@@ -10,9 +10,9 @@
 - CLI command handlers for proxy operations, config, and discovery.
 - Basic TUI status/containers view.
 
-## In Progress
-- Extend CLI parity and TUI functionality.
+## Completed
+- CLI help/usage aligned with Python tool.
+- Formatting, tests, and clippy clean.
 
 ## Todo
-- Add full CLI parity polish (help text, extra flags) and update docs.
-- Ensure formatting, tests, and clippy are clean; finalize release readiness.
+- Update documentation/README if needed.
