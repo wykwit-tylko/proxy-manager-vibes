@@ -69,9 +69,10 @@ impl DockerClient {
                     let clean_name = name.trim_start_matches('/');
                     if clean_name == container_name
                         && let Some(network_settings) = &container.network_settings
-                            && let Some(networks) = &network_settings.networks {
-                                return Ok(networks.keys().next().cloned());
-                            }
+                        && let Some(networks) = &network_settings.networks
+                    {
+                        return Ok(networks.keys().next().cloned());
+                    }
                 }
             }
         }

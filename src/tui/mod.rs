@@ -131,55 +131,56 @@ async fn run_app(terminal: &mut Terminal<impl Backend>, app: &mut App) -> anyhow
 
         if crossterm::event::poll(timeout)?
             && let Event::Key(key) = event::read()?
-                && key.kind == KeyEventKind::Press {
-                    match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
-                        KeyCode::Char('h') | KeyCode::Char('?') => app.show_help = !app.show_help,
-                        KeyCode::Tab => app.next_tab(),
-                        KeyCode::BackTab => app.previous_tab(),
-                        KeyCode::Right => {
-                            if app.current_tab == Tab::Containers {
-                                app.next_container();
-                            } else if app.current_tab == Tab::Routes {
-                                app.next_route();
-                            } else {
-                                app.next_tab();
-                            }
-                        }
-                        KeyCode::Left => {
-                            if app.current_tab == Tab::Containers {
-                                app.previous_container();
-                            } else if app.current_tab == Tab::Routes {
-                                app.previous_route();
-                            } else {
-                                app.previous_tab();
-                            }
-                        }
-                        KeyCode::Down => {
-                            if app.current_tab == Tab::Containers {
-                                app.next_container();
-                            } else if app.current_tab == Tab::Routes {
-                                app.next_route();
-                            }
-                        }
-                        KeyCode::Up => {
-                            if app.current_tab == Tab::Containers {
-                                app.previous_container();
-                            } else if app.current_tab == Tab::Routes {
-                                app.previous_route();
-                            }
-                        }
-                        KeyCode::Char('r') => {
-                            // Refresh
-                            if let Err(e) = app.refresh_config() {
-                                app.status_message = Some(format!("Error: {}", e));
-                            } else {
-                                app.status_message = Some("Refreshed".to_string());
-                            }
-                        }
-                        _ => {}
+            && key.kind == KeyEventKind::Press
+        {
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
+                KeyCode::Char('h') | KeyCode::Char('?') => app.show_help = !app.show_help,
+                KeyCode::Tab => app.next_tab(),
+                KeyCode::BackTab => app.previous_tab(),
+                KeyCode::Right => {
+                    if app.current_tab == Tab::Containers {
+                        app.next_container();
+                    } else if app.current_tab == Tab::Routes {
+                        app.next_route();
+                    } else {
+                        app.next_tab();
                     }
                 }
+                KeyCode::Left => {
+                    if app.current_tab == Tab::Containers {
+                        app.previous_container();
+                    } else if app.current_tab == Tab::Routes {
+                        app.previous_route();
+                    } else {
+                        app.previous_tab();
+                    }
+                }
+                KeyCode::Down => {
+                    if app.current_tab == Tab::Containers {
+                        app.next_container();
+                    } else if app.current_tab == Tab::Routes {
+                        app.next_route();
+                    }
+                }
+                KeyCode::Up => {
+                    if app.current_tab == Tab::Containers {
+                        app.previous_container();
+                    } else if app.current_tab == Tab::Routes {
+                        app.previous_route();
+                    }
+                }
+                KeyCode::Char('r') => {
+                    // Refresh
+                    if let Err(e) = app.refresh_config() {
+                        app.status_message = Some(format!("Error: {}", e));
+                    } else {
+                        app.status_message = Some("Refreshed".to_string());
+                    }
+                }
+                _ => {}
+            }
+        }
 
         if last_tick.elapsed() >= tick_rate {
             last_tick = std::time::Instant::now();
