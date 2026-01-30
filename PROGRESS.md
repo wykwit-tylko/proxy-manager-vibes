@@ -4,8 +4,8 @@ Goal: Re-implement `proxy-manager.py` in Rust and add a TUI.
 
 ## Status
 
-- Current iteration: 1
-- Repo state: Rust crate initialized; implementation pending.
+- Current iteration: 2
+- Repo state: Rust CLI + Docker backend + TUI implemented; remaining parity checks pending.
 
 ## Completed
 
