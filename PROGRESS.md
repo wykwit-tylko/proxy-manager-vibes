@@ -25,12 +25,13 @@ Re-implementing proxy-manager.py in Rust with CLI and TUI support.
 - [x] Code formatted with cargo fmt
 - [x] No clippy warnings
 - [x] README documentation
+- [x] Fixed nginx config syntax (return 503 directive)
 
 ## In Progress Tasks
-- [ ] Integration tests (optional)
+- [ ] Integration tests (optional - not required for production release)
 
 ## TODO - Next Steps
-1. Add integration tests (optional)
+1. Integration tests (optional)
 2. Create releases
 
 ## Architecture

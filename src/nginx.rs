@@ -28,7 +28,7 @@ pub fn generate_nginx_config(config: &Config) -> String {
 
         location = /fallback_{} {{
             default_type text/plain;
-            return503 'Service temporarily unavailable - container {} is not running';
+            return 503 'Service temporarily unavailable - container {} is not running';
         }}
     }}"#,
                 host_port, route.target, internal_port, host_port, host_port, route.target
