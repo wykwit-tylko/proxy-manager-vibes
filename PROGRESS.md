@@ -23,5 +23,5 @@ Goal: Re-implement `proxy-manager.py` in Rust and add a TUI.
 ## Todo (Next)
 
 - Compare remaining Python behaviors (edge cases, output text) and align.
-- Add integration-ish tests for App flows (start/stop/reload) with a FakeDocker. (Mostly done: added start-proxy flow tests)
+- Add integration-ish tests for App flows (start/stop/reload) with a FakeDocker. (Done: start/stop/reload/stop-port)
 - Add docs/readme for TUI usage + keybindings.

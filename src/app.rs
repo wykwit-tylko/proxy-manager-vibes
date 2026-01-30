@@ -577,6 +577,10 @@ mod tests {
             *self.exists.lock().unwrap() = v;
         }
 
+        fn set_stop_removed(&self, v: bool) {
+            *self.stop_removed.lock().unwrap() = v;
+        }
+
         fn ensured(&self) -> Vec<String> {
             self.ensured.lock().unwrap().clone()
         }
@@ -798,5 +802,126 @@ mod tests {
             out.iter()
                 .any(|l| l.contains("Warning: Could not connect to network net2"))
         );
+    }
+
+    #[tokio::test]
+    async fn stop_proxy_prints_stopped_when_container_removed() {
+        let docker = RecordingDocker::default();
+        docker.set_exists(true);
+        docker.set_stop_removed(true);
+
+        let cfg = Config {
+            proxy_name: "proxy-manager".to_string(),
+            ..Config::default()
+        };
+
+        let test_app = app_with_cfg_and_docker(cfg, docker);
+        let out = test_app.app.stop_proxy().await.unwrap();
+        assert!(
+            out.iter()
+                .any(|l| l.contains("Stopping proxy: proxy-manager"))
+        );
+        assert!(out.iter().any(|l| l.contains("Proxy stopped")));
+    }
+
+    #[tokio::test]
+    async fn reload_proxy_stops_then_starts() {
+        let docker = RecordingDocker::default();
+        docker.set_exists(true);
+        docker.set_stop_removed(true);
+
+        let cfg = Config {
+            containers: vec![ContainerConfig {
+                name: "a".to_string(),
+                label: None,
+                port: None,
+                network: None,
+            }],
+            routes: vec![Route {
+                host_port: 8000,
+                target: "a".to_string(),
+            }],
+            ..Config::default()
+        };
+
+        let test_app = app_with_cfg_and_docker(cfg, docker.clone());
+        let out = test_app.app.reload_proxy().await.unwrap();
+        assert!(
+            out.first()
+                .is_some_and(|l| l.contains("Reloading proxy..."))
+        );
+        assert!(out.iter().any(|l| l.contains("Stopping proxy:")));
+        assert!(out.iter().any(|l| l.contains("Starting proxy:")));
+
+        assert_eq!(docker.ran.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn stop_port_with_remaining_routes_triggers_reload() {
+        let docker = RecordingDocker::default();
+        docker.set_exists(true);
+        docker.set_stop_removed(true);
+
+        let cfg = Config {
+            containers: vec![ContainerConfig {
+                name: "a".to_string(),
+                label: None,
+                port: None,
+                network: None,
+            }],
+            routes: vec![
+                Route {
+                    host_port: 8000,
+                    target: "a".to_string(),
+                },
+                Route {
+                    host_port: 8001,
+                    target: "a".to_string(),
+                },
+            ],
+            ..Config::default()
+        };
+
+        let test_app = app_with_cfg_and_docker(cfg, docker.clone());
+        let out = test_app.app.stop_port(8001).await.unwrap();
+        assert!(out.iter().any(|l| l.contains("Removed route: port 8001")));
+        assert!(out.iter().any(|l| l.contains("Reloading proxy...")));
+
+        let new_cfg = test_app.app.store.load().unwrap();
+        assert_eq!(new_cfg.routes.len(), 1);
+        assert_eq!(new_cfg.routes[0].host_port, 8000);
+
+        assert_eq!(docker.ran.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn stop_port_last_route_triggers_stop() {
+        let docker = RecordingDocker::default();
+        docker.set_exists(true);
+        docker.set_stop_removed(true);
+
+        let cfg = Config {
+            containers: vec![ContainerConfig {
+                name: "a".to_string(),
+                label: None,
+                port: None,
+                network: None,
+            }],
+            routes: vec![Route {
+                host_port: 8000,
+                target: "a".to_string(),
+            }],
+            ..Config::default()
+        };
+
+        let test_app = app_with_cfg_and_docker(cfg, docker.clone());
+        let out = test_app.app.stop_port(8000).await.unwrap();
+        assert!(out.iter().any(|l| l.contains("Removed route: port 8000")));
+        assert!(out.iter().any(|l| l.contains("Stopping proxy:")));
+        assert!(out.iter().any(|l| l.contains("Proxy stopped")));
+
+        let new_cfg = test_app.app.store.load().unwrap();
+        assert!(new_cfg.routes.is_empty());
+        assert!(docker.ran.lock().unwrap().is_empty());
     }
 }
