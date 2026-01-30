@@ -181,17 +181,19 @@ mod tests {
 
     #[test]
     fn test_get_all_host_ports_with_routes() {
-        let mut config = Config::default();
-        config.routes = vec![
-            Route {
-                host_port: 8000,
-                target: "container1".to_string(),
-            },
-            Route {
-                host_port: 8001,
-                target: "container2".to_string(),
-            },
-        ];
+        let config = Config {
+            routes: vec![
+                Route {
+                    host_port: 8000,
+                    target: "container1".to_string(),
+                },
+                Route {
+                    host_port: 8001,
+                    target: "container2".to_string(),
+                },
+            ],
+            ..Default::default()
+        };
 
         let ports = get_all_host_ports(Some(&config));
         assert_eq!(ports, vec![8000, 8001]);

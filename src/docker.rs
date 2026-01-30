@@ -113,7 +113,11 @@ impl DockerClient {
             .is_ok()
     }
 
-    pub async fn build_image(&self, build_dir: &std::path::Path, tag: &str) -> Result<(), anyhow::Error> {
+    pub async fn build_image(
+        &self,
+        build_dir: &std::path::Path,
+        tag: &str,
+    ) -> Result<(), anyhow::Error> {
         let _options = BuildImageOptions {
             t: tag,
             rm: true,

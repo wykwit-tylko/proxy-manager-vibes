@@ -15,4 +15,3 @@ When acting on the implementation step:
 
 Once you're ready:
 - Make sure the implementation is complete, clean, well-tested and ready for production release.
-- Output <promise>COMPLETE</promise> ONLY when all of this is done.
