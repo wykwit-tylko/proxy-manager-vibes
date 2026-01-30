@@ -2,10 +2,12 @@ use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::fs;
 
-use crate::config::{Config, ConfigManager, Container};
+use crate::config::ConfigManager;
 use crate::docker::DockerClient;
 use crate::nginx::{generate_dockerfile, generate_nginx_config};
+use futures_util::StreamExt;
 
+#[derive(Clone)]
 pub struct ProxyManager {
     config_manager: ConfigManager,
     docker: DockerClient,
@@ -30,13 +32,11 @@ impl ProxyManager {
 
         let nginx_conf = generate_nginx_config(&config);
         let nginx_conf_path = self.config_manager.build_dir().join("nginx.conf");
-        fs::write(&nginx_conf_path, nginx_conf)
-            .context("Failed to write nginx.conf")?;
+        fs::write(&nginx_conf_path, nginx_conf).context("Failed to write nginx.conf")?;
 
         let dockerfile = generate_dockerfile(&config);
         let dockerfile_path = self.config_manager.build_dir().join("Dockerfile");
-        fs::write(&dockerfile_path, dockerfile)
-            .context("Failed to write Dockerfile")?;
+        fs::write(&dockerfile_path, dockerfile).context("Failed to write Dockerfile")?;
 
         println!("Building proxy image...");
 
@@ -93,17 +93,16 @@ impl ProxyManager {
 
         println!("Starting proxy: {}", proxy_name);
         self.docker
-            .run_container(
-                &proxy_image,
-                proxy_name,
-                default_network,
-                port_bindings,
-            )
+            .run_container(&proxy_image, proxy_name, default_network, port_bindings)
             .await?;
 
         for network in networks {
             if network != *default_network {
-                match self.docker.connect_container_to_network(proxy_name, &network).await {
+                match self
+                    .docker
+                    .connect_container_to_network(proxy_name, &network)
+                    .await
+                {
                     Ok(_) => println!("Connected proxy to network: {}", network),
                     Err(e) => println!("Warning: Could not connect to network {}: {}", network, e),
                 }
@@ -178,10 +177,11 @@ impl ProxyManager {
 
         if self.docker.container_exists(proxy_name).await {
             let container = self.docker.get_container(proxy_name).await?;
-            let status = container
+            let state = container
                 .state
-                .unwrap_or_else(|| "unknown".to_string());
-            println!("Proxy: {} ({})", proxy_name, status);
+                .unwrap_or(bollard::models::ContainerState::default());
+            let status_str = format!("{:?}", state).to_lowercase();
+            println!("Proxy: {} ({})", proxy_name, status_str);
             println!();
             println!("Active routes:");
 
@@ -214,7 +214,9 @@ impl ProxyManager {
         println!("Logs for: {}", proxy_name);
         println!("{}", "-".repeat(50));
 
-        let mut logs = self.docker.get_logs(proxy_name, tail, follow).await?;
+        let logs = self.docker.get_logs(proxy_name, tail, follow).await?;
+
+        futures_util::pin_mut!(logs);
 
         while let Some(result) = logs.next().await {
             match result {

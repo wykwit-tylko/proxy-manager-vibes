@@ -1,5 +1,5 @@
+use crate::config::{ConfigManager, Container};
 use anyhow::Result;
-use crate::config::{Config, ConfigManager, Container};
 
 pub struct ContainerManager {
     config_manager: ConfigManager,
@@ -24,13 +24,9 @@ impl ContainerManager {
         let mut config = self.config_manager.load()?;
 
         let network = if network.is_none() {
-            if let Ok(detected) = self.docker.get_container_network(&container_name).await {
-                if let Some(detected) = detected {
-                    println!("Auto-detected network: {}", detected);
-                    Some(detected)
-                } else {
-                    None
-                }
+            if let Ok(Some(detected)) = self.docker.get_container_network(&container_name).await {
+                println!("Auto-detected network: {}", detected);
+                Some(detected)
             } else {
                 None
             }
@@ -38,23 +34,35 @@ impl ContainerManager {
             network
         };
 
-        if let Some(existing) = config.find_container(&container_name) {
+        if let Some(_existing) = config.find_container(&container_name) {
             let mut updated = false;
 
             if let Some(label) = label {
-                let container = config.containers.iter_mut().find(|c| c.name == container_name).unwrap();
+                let container = config
+                    .containers
+                    .iter_mut()
+                    .find(|c| c.name == container_name)
+                    .unwrap();
                 container.label = Some(label);
                 updated = true;
             }
 
             if port.is_some() {
-                let container = config.containers.iter_mut().find(|c| c.name == container_name).unwrap();
+                let container = config
+                    .containers
+                    .iter_mut()
+                    .find(|c| c.name == container_name)
+                    .unwrap();
                 container.port = port;
                 updated = true;
             }
 
             if network.is_some() {
-                let container = config.containers.iter_mut().find(|c| c.name == container_name).unwrap();
+                let container = config
+                    .containers
+                    .iter_mut()
+                    .find(|c| c.name == container_name)
+                    .unwrap();
                 container.network = network;
                 updated = true;
             }
@@ -88,9 +96,9 @@ impl ContainerManager {
             return Ok(false);
         }
 
-        let container_name = &container.unwrap().name;
-        config.containers.retain(|c| c.name != container_name);
-        config.routes.retain(|r| r.target != container_name);
+        let container_name = container.unwrap().name.clone();
+        config.containers.retain(|c| c.name != container_name.as_str());
+        config.routes.retain(|r| r.target != container_name.as_str());
         self.config_manager.save(&config)?;
         println!("Removed container: {}", container_name);
 
@@ -100,7 +108,11 @@ impl ContainerManager {
     pub fn list_containers(&self) -> Result<()> {
         let config = self.config_manager.load();
 
-        if config.as_ref().map(|c| c.containers.is_empty()).unwrap_or(true) {
+        if config
+            .as_ref()
+            .map(|c| c.containers.is_empty())
+            .unwrap_or(true)
+        {
             println!("No containers configured");
             return Ok(());
         }

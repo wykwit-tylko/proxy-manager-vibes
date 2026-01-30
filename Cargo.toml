@@ -18,7 +18,7 @@ path = "src/tui.rs"
 
 [dependencies]
 anyhow = "1.0"
-bollard = "0.17"
+bollard = { version = "0.17", features = ["ssl"] }
 clap = { version = "4.5", features = ["derive", "env"] }
 clap_complete = "4.5"
 crossterm = "0.28"

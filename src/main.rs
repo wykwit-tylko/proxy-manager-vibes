@@ -1,17 +1,17 @@
-use clap::{Parser, Subcommand};
 use anyhow::Result;
+use clap::{Parser, Subcommand};
 
 mod config;
+mod containers;
 mod docker;
 mod nginx;
 mod proxy;
-mod containers;
 mod routes;
 
-use config::{ConfigManager, DEFAULT_PORT};
+use config::ConfigManager;
+use containers::ContainerManager;
 use docker::DockerClient;
 use proxy::ProxyManager;
-use containers::ContainerManager;
 use routes::RouteManager;
 
 #[derive(Parser)]
@@ -32,9 +32,7 @@ enum Commands {
     Start,
 
     #[command(about = "Stop the proxy (or stop routing for specific port)")]
-    Stop {
-        port: Option<u16>,
-    },
+    Stop { port: Option<u16> },
 
     #[command(about = "Stop and start the proxy")]
     Restart,
@@ -62,7 +60,12 @@ enum Commands {
         #[arg(short, long, help = "Follow log output (like tail -f)")]
         follow: bool,
 
-        #[arg(short = 'n', long, default_value = "100", help = "Number of lines to show")]
+        #[arg(
+            short = 'n',
+            long,
+            default_value = "100",
+            help = "Number of lines to show"
+        )]
         tail: i32,
     },
 
@@ -77,7 +80,11 @@ enum Commands {
         #[arg(short = 'p', long, help = "Port the container exposes (default: 8000)")]
         port: Option<u16>,
 
-        #[arg(short = 'n', long, help = "Network the container is on (default: auto-detects from container or uses config's network)")]
+        #[arg(
+            short = 'n',
+            long,
+            help = "Network the container is on (default: auto-detects from container or uses config's network)"
+        )]
         network: Option<String>,
     },
 
@@ -155,8 +162,15 @@ async fn main() -> Result<()> {
         Commands::Logs { follow, tail } => {
             proxy_manager.show_logs(follow, tail).await?;
         }
-        Commands::Add { container, label, port, network } => {
-            container_manager.add_container(container, label, port, network).await?;
+        Commands::Add {
+            container,
+            label,
+            port,
+            network,
+        } => {
+            container_manager
+                .add_container(container, label, port, network)
+                .await?;
         }
         Commands::Remove { identifier } => {
             container_manager.remove_container(identifier).await?;
@@ -180,8 +194,6 @@ async fn main() -> Result<()> {
 }
 
 fn install_cli() -> Result<()> {
-    use std::os::unix::fs::hard_link;
-
     let script_path = std::env::current_exe()?;
     let user_bin = dirs::home_dir()
         .ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?
@@ -195,13 +207,20 @@ fn install_cli() -> Result<()> {
         std::fs::remove_file(&hardlink)?;
     }
 
-    hard_link(&script_path, &hardlink)?;
-    println!("Created hardlink: {} -> {}", hardlink.display(), script_path.display());
+    std::fs::hard_link(&script_path, &hardlink)?;
+    println!(
+        "Created hardlink: {} -> {}",
+        hardlink.display(),
+        script_path.display()
+    );
     println!();
     println!("See 'proxy-manager --help' for a quick start guide.");
 
     let paths = std::env::var("PATH").unwrap_or_default();
-    if !paths.split(':').any(|p| p == user_bin.to_str().unwrap_or("")) {
+    if !paths
+        .split(':')
+        .any(|p| p == user_bin.to_str().unwrap_or(""))
+    {
         println!("NOTE: Add {} to your PATH:", user_bin.display());
         println!("  export PATH=\"{}:$PATH\"", user_bin.display());
         println!("  # Add to ~/.bashrc or ~/.zshrc to persist");
@@ -212,7 +231,10 @@ fn install_cli() -> Result<()> {
 
 fn show_config(config_manager: &ConfigManager) -> Result<()> {
     let config = config_manager.load()?;
-    println!("Config file: {}", config_manager.config_file_path().display());
+    println!(
+        "Config file: {}",
+        config_manager.config_file_path().display()
+    );
     println!();
     println!("{}", serde_json::to_string_pretty(&config)?);
     Ok(())

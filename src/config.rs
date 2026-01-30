@@ -83,6 +83,7 @@ impl Config {
     }
 }
 
+#[derive(Clone)]
 pub struct ConfigManager {
     config_dir: PathBuf,
     config_file: PathBuf,
@@ -153,7 +154,6 @@ impl ConfigManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
 
     #[test]
     fn test_config_default() {
