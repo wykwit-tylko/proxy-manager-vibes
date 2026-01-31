@@ -29,6 +29,8 @@ In my order of preference...
 | 7 | Google      | Gemini 3 Pro      | Google         | 46 (#2)      | 52 (#5)       | Failure | F    |
 | 8 | Google      | Gemini 3 Flash    | Google         | 43 (#4)      | 50 (#6)       | Success | B    |
 
+The Coding Index and Agentic Index scores come from <https://artificialanalysis.ai/>.
+
 ## Results
 
 ### 1. GLM-4.7
