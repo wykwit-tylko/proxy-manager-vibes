@@ -18,16 +18,17 @@ ralph --max-iterations 5 -f TASK.md --model <provider/model>
 
 In my order of preference...
 
-| N | Lab         | Model             | Provider       | Coding Index | Agentic Index | Results | Rank |
-|---|-------------|-------------------|----------------|--------------|---------------|---------|------|
-| 1 | Z.AI        | GLM-4.7           | Z.AI           | 36 (#6)      | 55 (#4)       | Success | A+   |
-| 2 | Minimax     | M2.1              | OpenCode Zen   | 33 (#8)      | 47 (#8)       | Success | C-   |
-| 3 | Moonshot AI | Kimi K2.5         | Kimi Code      | 40 (#5)      | 59 (#2)       | Failure | F    |
-| 4 | Moonshot AI | Kimi K2 Thinking  | Kimi Code      | 35 (#7)      | 48 (#7)       | Success | A    |
-| 5 | OpenAI      | GPT-5.2           | Github Copilot | 49 (#1)      | 60 (#1)       | Success | S    |
-| 6 | OpenAI      | GPT-5.2-Codex     | GitHub Copilot | 43 (#3)      | 57 (#3)       | Success | C    |
-| 7 | Google      | Gemini 3 Pro      | Google         | 46 (#2)      | 52 (#5)       | Failure | F    |
-| 8 | Google      | Gemini 3 Flash    | Google         | 43 (#4)      | 50 (#6)       | Success | B    |
+| N | Lab         | Model             | Provider       | Coding Index | Agentic Index | Rank |
+|---|-------------|-------------------|----------------|--------------|---------------|------|
+| 1 | Z.AI        | GLM-4.7           | Z.AI           | 36 (#7)      | 55 (#5)       | B+   |
+| 2 | Minimax     | M2.1              | OpenCode Zen   | 33 (#9)      | 47 (#9)       | C-   |
+| 3 | Moonshot AI | Kimi K2.5         | Kimi Code      | 40 (#6)      | 59 (#3)       | A    |
+| 4 | Moonshot AI | Kimi K2 Thinking  | Kimi Code      | 35 (#8)      | 48 (#8)       | A-   |
+| 5 | OpenAI      | GPT-5.2           | Github Copilot | 49 (#1)      | 60 (#2)       | S    |
+| 6 | OpenAI      | GPT-5.2-Codex     | GitHub Copilot | 43 (#4)      | 57 (#4)       | C    |
+| 7 | Google      | Gemini 3 Pro      | Google         | 46 (#3)      | 52 (#6)       | F    |
+| 8 | Google      | Gemini 3 Flash    | Google         | 43 (#5)      | 50 (#7)       | B    |
+| 9 | Anthropic   | Claude Opus 4.6   | Github Copilot | 48 (#2)      | 64 (#1)       | A    |
 
 The Coding Index and Agentic Index scores come from <https://artificialanalysis.ai/>.
 
@@ -41,7 +42,7 @@ Branch: [glm-4.7](https://github.com/wykwit-tylko/proxy-manager-vibes/tree/glm-4
 
 Starting off with documentation - I really like how nicely this model reports progress. We also got a pretty README.md file. This is the only model that generated a full Cargo.toml with description, default license, accurate keywords, and categories. It's also the only model that opted for creating the TUI as a separate binary instead of a subcommand. The structure is laid out nicely with very good separation of concerns for each module. Pretty much all the modules contain "managers" implemented in an object-oriented style. Dependencies between modules are passed explicittly by calling the constructor with an instance of another manager or client. In some places we can see 'use' imports and full namespace qualifiers inconsistently mixed up, which is a little annoying. We are missing unit tests, except for a few in the config module. I don't spot anything particularly unexpected in the generated code. If I were dropped in this codebase I could easily find my way around and make changes. In this case the TUI is a failure. The way it's done is a bunch of menus to execute CLI subcommands. No overview of the status, no container lists, overall a pretty weak attempt. Disregarding the TUI, the model gave me exactly what I would expect. It may have difficulties with Rust sometimes, but in the end the project works and feels good enough. It's worth mentioning that the original proxy-manager.py was also made with this model. This model is definitely underaprreciated and it quickly became my favorite once I tried using it more.
 
-Subjective Rank: A+
+Subjective Rank: B+
 
 ### 2. Minimax M2.1
 
@@ -59,9 +60,17 @@ Subjective Rank: C-
 
 ### 3. Kimi K2.5
 
-**FAILURE**
+Iterations to complete: **1**
 
-I've tried letting it run for more iterations and I've tried giving it more directed instructions, but at this time the model gets completely lost. It starts exploring and finishes the run before doing any implementation. It sends down invalid tool calls. Maybe something is wrong with my harness, maybe the issue is that this model is still too fresh, but it just doesn't work. It can emit some code, but it completely fails when working on projects. From the benchmarks and the original announcement this seems to be a good model for writing, planning, splitting work, and creating prompts for other agents. Unfortunately it miserably fails as an executor.
+~~I've tried letting it run for more iterations and I've tried giving it more directed instructions, but at this time the model gets completely lost. It starts exploring and finishes the run before doing any implementation. It sends down invalid tool calls. Maybe something is wrong with my harness, maybe the issue is that this model is still too fresh, but it just doesn't work. It can emit some code, but it completely fails when working on projects. From the benchmarks and the original announcement this seems to be a good model for writing, planning, splitting work, and creating prompts for other agents. Unfortunately it miserably fails as an executor.~~
+
+Another attempt a few days later gives drastically different results. This solution has everything that is good about the one from Kimi K2 Thinking, but it's just better all around. No more hallucinations, way more precision. For some reason this model still has issues working in a loop, but it's also really good at managing other subagents. It's a good middleman for communicating with more focused agents, more specialized models, and orchestrating them.
+
+The concerns I had with the implementation that K2 Thinking did do not apply here. There's a nice and clean entry point with tracing configured for proper error logging. The rest is delegated either to TUI or CLI modules. The TUI is the best so far, we even got a tab with live log view. It's still writing a lot of mod files in otherwise empty module directories, but the results are very good.
+
+I wanted to praise this model more, but I did the code review about a week ago and can't remember the details anymore.
+
+Subjective Rank: A
 
 ### 4. Kimi K2 Thinking
 
@@ -71,7 +80,7 @@ Branch: [kimi-k2](https://github.com/wykwit-tylko/proxy-manager-vibes/tree/kimi-
 
 It came up with the best TUI. It completed the whole task in one iteration. This is pretty crazy by itself. We even got a few unit tests. There is a short, but well-structured README, although it mentions a hallucinated sub-command that is not implemented. There were some clippy warnings left over, but they didn't affect compilation, and got quickly fixed with a single additional prompt. This model sprinkles in a few comments from time to time. Looking at Cargo.toml we see our dependencies organized by category with comments telling us what they are there for. The project structure is OK. There's both a lib and main files, but the lib seems unneccessary in this case. All modules are put in their own directories and mostly implemented in a single mod file. In this case I would prefer a flat structure. The separation could be better, but this isn't too bad. Most important modules are implemented in the obejct-oriented fashion similar to how GLM-4.7 did it. I like the visual separation of steps in longer functions. This code reads really well. After the failure of the younger brother K2.5 it's a pleasant surprise to see that good of a result. Fells like this model knows how to write Rust.
 
-Subjective Rank: A
+Subjective Rank: A-
 
 ### 5. GPT-5.2
 
@@ -93,6 +102,16 @@ This version is way worse than the previous attempt. This time we don't have a R
 
 Subjective Rank: C
 
+#### 6b. GPT-5.3-Codex
+
+Iterations to complete: **1**
+
+Branch: [gpt-5.3-codex](https://github.com/wykwit-tylko/proxy-manager-vibes/tree/gpt-5.3-codex)
+
+After the release of GPT-5.3-Codex I also tried it with this test. It was fast and it was way better, overall a very good model. Still, it wasn't nearly as good as what we got from GPT-5.2, so I'm not gonna bother with a full review.
+
+Subjective Rank: A
+
 ### 7. Gemini 3 Pro
 
 **FAILURE**
@@ -108,6 +127,26 @@ Branch: [gemini-3-flash](https://github.com/wykwit-tylko/proxy-manager-vibes/tre
 Unlike with the bigger brother the completion status emitted after first iteration was valid. The model started off similarly to the previous one, by creating parts of the project in a subdirectory, but it quickly corrected itself. Much like Kimi K2 Thinking, it got surprisingly good results fast, but in this case speed seems to be the only unique advantage of the model. Progress tracking is OK, we don't have a README, the Cargo.toml is minimal. The separation of modules could be better - the only one proper single concern module is the config. TUI seems to give us more or less the overview of current status, but it's nothing special. In a few more prompts maybe you could steer this implementation attempt the right way, but left to itself, Gemini just doesn't deliver much. Perhaps if it didn't stop after the first iteration it could end up with a better result. This model is good at many things, but it's definitely not the best at coding.
 
 Subjective Rank: B
+
+### 9. Claude Opus 4.6
+
+Iterations to complete: **1**
+
+Branch: [claude-opus-4.6](https://github.com/wykwit-tylko/proxy-manager-vibes/tree/claude-opus-4.6)
+
+This is just a very good attempt in every way, including: great metadata, doc-comments, extensive testing, correct module separation, very pretty TUI. It had some compilation issues at first, but corrected itself very quickly. Seems like this is going to be a pleasant model to steer.
+
+Subjective Rank: A
+
+#### 9b. Claude Opus 4.5
+
+Iterations to complete: **1**
+
+Branch: [claude-opus-4.5](https://github.com/wykwit-tylko/proxy-manager-vibes/tree/claude-opus-4.5)
+
+As expected, we simply got a worse version of what Opus 4.6 did. Almost no doc-comments, way less tests, and it's spitting Markdown files everywhere. We all know this is a solid model. The results are exactly what everyone would expect the generated code to look like. No surprises. Comparatively, in my opinion, it's not as good as Kimi K2.5 in this exercise.
+
+Subjective Rank: A-
 
 ## Conclusion
 
