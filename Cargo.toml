@@ -1,0 +1,36 @@
+[package]
+name = "proxy-manager"
+version = "0.1.0"
+edition = "2024"
+description = "Manage Nginx proxy to route multiple ports to different Docker app containers"
+
+[dependencies]
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Docker
+bollard = "0.18"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# TUI
+ratatui = "0.29"
+crossterm = "0.28"
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# Misc
+dirs = "6"
+tar = "0.4"
+futures-util = "0.3"
+tempfile = { version = "3", optional = true }
+
+[dev-dependencies]
+tempfile = "3"
